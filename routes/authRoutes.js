@@ -118,19 +118,16 @@ router.post("/login/dosen", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Temukan dosen berdasarkan email
     const dosen = await Dosen.findOne({ email });
     if (!dosen) {
       return res.status(401).json({ message: "Email atau kata sandi salah" });
     }
 
-    // Verifikasi password
     const isPasswordValid = await bcrypt.compare(password, dosen.password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Email atau kata sandi salah" });
     }
 
-    // Buat token
     const token = jwt.sign({ dosenId: dosen._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
