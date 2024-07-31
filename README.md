@@ -10,7 +10,7 @@ the specified proposal to the lecturer.
 - Send proposals to administrators
 - Admin can view and manage user proposals
 - Lecturer can review the proposal
-- Email Notification
+- Email Notifications
 
 ## Prerequisites
 
