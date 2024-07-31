@@ -1,5 +1,7 @@
-const User = require('../models/User'); 
+const User = require('../models/Role'); 
 
+
+//Middleware user save,edit, delete, submit proposal
 const checkUserRole = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.userId);
@@ -11,5 +13,6 @@ const checkUserRole = async (req, res, next) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 module.exports = checkUserRole;

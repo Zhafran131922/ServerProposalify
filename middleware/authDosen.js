@@ -15,7 +15,7 @@ const authDosen = async (req, res, next) => {
         req.dosen = dosen;
         next();
     } catch (error) {
-        res.status(401).json({ message: 'Please authenticate.' });
+        res.status(401).json({ message: 'Invalid Token.' });
     }
 };
 
