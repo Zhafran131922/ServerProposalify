@@ -1,4 +1,4 @@
-# Backend Proposalify
+# Proposalify Backend
 
 Proposalify is a website to build your own proposal which is built with Node.js, Express, and MongoDB. It allows users to submit, edit, delete, and send proposals to administrators. Administrators can view and manage submitted proposals. The Administrators will forward
 the specified proposal to the lecturer.
