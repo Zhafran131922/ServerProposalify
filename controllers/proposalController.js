@@ -152,6 +152,47 @@ exports.editProposalById = async (req, res) => {
   }
 };
 
+exports.adminGetSubmittedProposals = async (req, res) => {
+  try {
+    const submittedProposals = await SubmittedProposal.find()
+      .populate({
+        path: 'admin_id',
+        match: { role: 'admin' }, // Pastikan hanya admin yang diambil
+      })
+      .populate('proposal_id');
+
+    if (submittedProposals.length === 0) {
+      return res.status(404).json({ message: "No submitted proposals found" });
+    }
+
+    res.status(200).json(submittedProposals);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+exports.getUserProposals = async (req, res) => {
+  try {
+    const user_id = req.user.userId;
+
+    if (!user_id) {
+      return res.status(400).json({ message: "User ID is not found in the token" });
+    }
+
+    const proposals = await Proposal.find({ user_id });
+
+    if (proposals.length === 0) {
+      return res.status(404).json({ message: "No proposals found for this user" });
+    }
+
+    res.status(200).json(proposals);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
 exports.deleteProposalById = async (req, res) => {
   try {
     const proposalId = req.params.proposalId;
