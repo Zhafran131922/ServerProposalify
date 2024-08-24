@@ -4,41 +4,33 @@ const History = require("../models/History");
 const proposalService = require("../services/proposalService");
 const transporter = require("../services/emailConfig");
 
+
 exports.saveProposal = async (req, res) => {
   try {
     const { judul, formulirs } = req.body;
     const user_id = req.user.userId;
 
     if (!user_id) {
-      return res
-        .status(400)
-        .json({ message: "User ID is not found in the token" });
+      return res.status(400).json({ message: "User ID is not found in the token" });
     }
 
+    // Log data untuk debugging
     console.log("User ID from token:", user_id);
+    console.log("Received Proposal Data:", { judul, formulirs });
 
-    let parsedFormulirs;
-    if (typeof formulirs === "string") {
-      try {
-        parsedFormulirs = JSON.parse(formulirs);
-      } catch (e) {
-        return res.status(400).json({ message: "Invalid formulirs format" });
-      }
-    } else {
-      parsedFormulirs = formulirs;
-    }
-
+    // Create new proposal object
     const proposal = new Proposal({
       user_id,
       judul,
-      formulirs: parsedFormulirs,
+      formulirs: formulirs, // Save formulirs directly
     });
 
+    // Save proposal to the database
     await proposal.save();
-
 
     res.status(201).json({ message: "Proposal berhasil disimpan" });
   } catch (error) {
+    console.error('Error saving proposal:', error); // Log error for debugging
     res.status(500).json({ message: error.message });
   }
 };
