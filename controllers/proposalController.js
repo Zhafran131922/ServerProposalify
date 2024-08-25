@@ -3,7 +3,7 @@ const SubmittedProposal = require("../models/SubmittedProposal");
 const History = require("../models/History");
 const proposalService = require("../services/proposalService");
 const transporter = require("../services/emailConfig");
-
+const moment = require('moment-timezone');
 
 exports.saveProposal = async (req, res) => {
   try {
@@ -14,26 +14,25 @@ exports.saveProposal = async (req, res) => {
       return res.status(400).json({ message: "User ID is not found in the token" });
     }
 
-    // Log data untuk debugging
     console.log("User ID from token:", user_id);
     console.log("Received Proposal Data:", { judul, formulirs });
 
-    // Create new proposal object
     const proposal = new Proposal({
       user_id,
       judul,
-      formulirs: formulirs, // Save formulirs directly
+      formulirs: formulirs, 
     });
 
-    // Save proposal to the database
     await proposal.save();
 
     res.status(201).json({ message: "Proposal berhasil disimpan" });
   } catch (error) {
-    console.error('Error saving proposal:', error); // Log error for debugging
+    console.error('Error saving proposal:', error); 
     res.status(500).json({ message: error.message });
   }
 };
+
+
 
 exports.adminGetProposal = async (req, res) => {
   try {
@@ -76,14 +75,23 @@ exports.sendProposaltoAdmin = async (req, res) => {
     });
     await submittedProposal.save();
 
+    // Convert createdAt to WIB
+    const createdAtWIB = moment(submittedProposal.createdAt).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss');
 
-    res
-      .status(200)
-      .json({ message: "Proposal berhasil dikirim ke administratorsss" });
+    res.status(200).json({
+      message: "Proposal berhasil dikirim ke admin",
+      submittedProposal: {
+        id: submittedProposal._id,
+        createdAt: createdAtWIB,
+        proposalTitle: proposal.judul,
+        adminId: submittedProposal.admin_id,
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 exports.getProposalById = async (req, res) => {
   try {
@@ -200,4 +208,43 @@ exports.deleteProposalById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// exports.saveProposal = async (req, res) => {
+//   try {
+//     const { judul, formulirs } = req.body;
+//     const user_id = req.user.userId;
+
+//     if (!user_id) {
+//       return res
+//         .status(400)
+//         .json({ message: "User ID is not found in the token" });
+//     }
+
+//     console.log("User ID from token:", user_id);
+
+//     let parsedFormulirs;
+//     if (typeof formulirs === "string") {
+//       try {
+//         parsedFormulirs = JSON.parse(formulirs);
+//       } catch (e) {
+//         return res.status(400).json({ message: "Invalid formulirs format" });
+//       }
+//     } else {
+//       parsedFormulirs = formulirs;
+//     }
+
+//     const proposal = new Proposal({
+//       user_id,
+//       judul,
+//       formulirs: parsedFormulirs,
+//     });
+
+//     await proposal.save();
+
+
+//     res.status(201).json({ message: "Proposal berhasil disimpan" });
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
 

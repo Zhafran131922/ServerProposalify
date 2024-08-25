@@ -155,6 +155,84 @@ exports.loginDosen = async (req, res) => {
   }
 };
 
+//BARU 
+
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    let user;
+    let role;
+    let bidangKeahlian;
+
+    user = await User.findOne({ email });
+    if (user) {
+      role = user.role;
+    } else {
+      user = await Dosen.findOne({ email });
+      if (user) {
+        role = "dosen";
+        bidangKeahlian = user.bidangKeahlian; 
+      } else {
+        return res.status(401).json({ message: "Email atau kata sandi salah" });
+      }
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Email atau kata sandi salah" });
+    }
+
+    const token = jwt.sign({ userId: user._id, role: role }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    const response = {
+      message: "Login berhasil",
+      role,
+      token,
+    };
+
+    if (role === "dosen") {
+      response.bidangKeahlian = bidangKeahlian;
+    }
+
+    res.status(200).json(response);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.register = async (req, res) => {
+  try {
+    const { username, email, password, role } = req.body;
+
+    if (role !== "user" && role !== "admin") {
+      return res.status(400).json({ message: "Role tidak valid" });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email sudah terdaftar" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = new User({
+      username,
+      email,
+      password: hashedPassword,
+      role,
+    });
+
+    await user.save();
+
+    res.status(201).json({ message: "Pendaftaran berhasil" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // exports.register = async (req, res) => {
 //     try {
 //         const user = await authService.register(req.body);

@@ -10,7 +10,7 @@ const upload = require('../config/multer');
 
 
 
-router.post('/proposals', upload.array('files'), authenticateToken, authorizeUser, proposalController.saveProposal);
+router.post('/proposals', authenticateToken, authorizeUser, proposalController.saveProposal);
 router.get("/proposals/:id", authAdmin, proposalController.adminGetProposal);
 router.get("/saved-proposals/:user_id", authAdmin, proposalController.adminGetUserProposals);
 router.post("/send-proposal-to-admin", authenticateToken, authorizeUser, proposalController.sendProposaltoAdmin);

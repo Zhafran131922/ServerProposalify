@@ -9,6 +9,7 @@ router.get("/dosens", authAdmin, adminController.getAllDosens);
 router.delete("/dosens/:id", authAdmin, adminController.deleteDosen);
 router.post("/review-proposal", authAdmin, ReviewController.reviewProposal); //send proposal to dosen
 router.get("/proposals/:username",authAdmin, adminController.getProposalsForDosen);
+router.get("/get/user-proposals-date", authAdmin, adminController.getRecentSubmittedProposals);
 
 
 module.exports = router;

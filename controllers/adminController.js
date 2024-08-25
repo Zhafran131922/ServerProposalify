@@ -46,6 +46,37 @@ exports.deleteDosen = async (req, res) => {
   }
 };
 
+exports.getRecentSubmittedProposals = async (req, res) => {
+  try {
+    const submittedProposals = await SubmittedProposal.find()
+      .sort({ createdAt: -1 }) // Sort by the most recent submissions
+      .populate({
+        path: 'proposal_id',
+        populate: {
+          path: 'user_id', 
+          model: 'User',
+          select: 'username email' // Select the relevant user fields
+        }
+      });
+
+    if (submittedProposals.length === 0) {
+      return res.status(404).json({ message: "No recent submitted proposals found" });
+    }
+
+    // Map the submitted proposals to include the required fields in the response
+    const response = submittedProposals.map(submission => ({
+      username: submission.proposal_id.user_id.username,
+      email: submission.proposal_id.user_id.email,
+      proposalTitle: submission.proposal_id.judul,
+      submittedAt: submission.createdAt
+    }));
+
+    res.status(200).json(response);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // exports.sendProposalToDosen = async (req, res) => {
 //     try {
 //         const { proposal_id, dosen_email } = req.body;
