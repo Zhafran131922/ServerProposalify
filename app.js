@@ -1,5 +1,7 @@
 require("dotenv").config();
 
+const multer = require("multer");
+
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
@@ -35,7 +37,9 @@ app.use(express.json());
 app.use(cors());
 app.use(morgan("dev"));
 app.use(authenticateUser);
-
+app.use(bodyParser.urlencoded({ extended: true })); // Supports form-data
+app.use(bodyParser.json()); // Supports JSON
+const upload = multer();
 // Connect to MongoDB
 mongoose
   .connect(process.env.DB_URI, {
@@ -55,6 +59,58 @@ app.post("/api/admin/register-dosen", authController.registerDosen);
 // app.use('/api/admin/review-proposal', reviewRoutes);
 // app.use('/api/users', userRoutes);
 // app.post('/api/send-proposal', proposalController.sendProposalHandler);
+app.post('/api/proposalss', upload.none(), async (req, res) => {
+  try {
+    const { judul, formulirs } = req.body;
+    const user_id = req.user.userId;
+
+    if (!user_id) {
+      return res.status(400).json({ message: "User ID is not found in the token" });
+    }
+
+    console.log("User ID from token:", user_id);
+
+    // Parse formulirs if it is a string
+    let parsedFormulirs;
+    if (typeof formulirs === 'string') {
+      try {
+        parsedFormulirs = JSON.parse(formulirs);
+      } catch (e) {
+        return res.status(400).json({ message: "Invalid formulirs format" });
+      }
+    } else if (Array.isArray(formulirs)) {
+      parsedFormulirs = formulirs;
+    } else {
+      return res.status(400).json({ message: "Formulirs must be an array and cannot be empty" });
+    }
+
+    const processedFormulirs = parsedFormulirs.map(formulir => {
+      if (!formulir.judulFormulir || !formulir.isi) {
+        throw new Error('Each formulir must have a judulFormulir and isi');
+      }
+
+      // If isi is base64, process it accordingly
+      if (formulir.isi.startsWith('data:image')) {
+        return formulir;
+      }
+
+      return formulir;
+    });
+
+    const proposal = new Proposal({
+      user_id,
+      judul,
+      formulirs: processedFormulirs,
+    });
+
+    await proposal.save();
+
+    res.status(201).json({ message: "Proposal berhasil disimpan" });
+  } catch (error) {
+    console.error("Error during proposal save:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

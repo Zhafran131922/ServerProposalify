@@ -55,7 +55,7 @@ exports.getRecentSubmittedProposals = async (req, res) => {
         populate: {
           path: 'user_id', 
           model: 'User',
-          select: 'username email' // Select the relevant user fields
+          select: 'username email' 
         }
       });
 
@@ -65,6 +65,7 @@ exports.getRecentSubmittedProposals = async (req, res) => {
 
     // Map the submitted proposals to include the required fields in the response
     const response = submittedProposals.map(submission => ({
+      proposalId: submission.proposal_id._id, 
       username: submission.proposal_id.user_id.username,
       email: submission.proposal_id.user_id.email,
       proposalTitle: submission.proposal_id.judul,
@@ -76,6 +77,7 @@ exports.getRecentSubmittedProposals = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // exports.sendProposalToDosen = async (req, res) => {
 //     try {

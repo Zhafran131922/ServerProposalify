@@ -1,10 +1,9 @@
 const jwt = require('jsonwebtoken');
-const Dosen = require('../models/Dosen'); // Sesuaikan path
-
+const Dosen = require('../models/Dosen'); 
 const authDosen = async (req, res, next) => {
     try {
         const token = req.header('Authorization').replace('Bearer ', '');
-        const decoded = jwt.verify(token, process.env.JWT_SECRET); // Sesuaikan dengan kunci rahasia yang digunakan
+        const decoded = jwt.verify(token, process.env.JWT_SECRET); 
         const dosen = await Dosen.findOne({ _id: decoded.dosenId });
 
         if (!dosen) {
