@@ -8,7 +8,7 @@ const { getReviewedProposalByProposalId } = require("../controllers/reviewContro
 router.post("/:proposalId", authDosen, reviewController.sendReview);
 router.get("/reviews/:proposalId", authDosen, reviewController.getProposalReviews)
 router.get("/dosen/:dosenId", authDosen, reviewController.getReviewsForDosen);
-router.get("/:proposalId", reviewController.getProposal);
-router.get("/reviewed-proposal/:dosenId/:proposalId", getReviewedProposalByProposalId);
+router.get("/:proposalId", authDosen, reviewController.getProposal);
+router.get("/reviewed-proposal/:dosenId/:proposalId", authDosen, getReviewedProposalByProposalId);
 
 module.exports = router;

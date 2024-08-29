@@ -165,14 +165,16 @@ exports.login = async (req, res) => {
     let role;
     let bidangKeahlian;
 
+    // Cek apakah user adalah user biasa
     user = await User.findOne({ email });
     if (user) {
       role = user.role;
     } else {
+      // Jika tidak, cek apakah user adalah dosen
       user = await Dosen.findOne({ email });
       if (user) {
         role = "dosen";
-        bidangKeahlian = user.bidangKeahlian; 
+        bidangKeahlian = user.bidangKeahlian;
       } else {
         return res.status(401).json({ message: "Email atau kata sandi salah" });
       }
@@ -183,7 +185,9 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Email atau kata sandi salah" });
     }
 
-    const token = jwt.sign({ userId: user._id, role: role }, process.env.JWT_SECRET, {
+    // Buat token dengan payload yang benar
+    const tokenPayload = role === "dosen" ? { dosenId: user._id, role: role } : { userId: user._id, role: role };
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
 

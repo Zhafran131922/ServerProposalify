@@ -1,6 +1,8 @@
 const Review = require("../models/Review");
 const ReviewProposal = require("../models/ReviewProposal");
+const SubmittedProposal = require("../models/SubmittedProposal");
 const Proposal = require("../models/Proposal");
+const User = require("../models/Role");
 const sendProposalNotification = require("../services/emailService");
 const sendNotificationToOwner = require("../services/emailService");
 const { getProposalById } = require("./proposalController");
@@ -14,17 +16,31 @@ exports.reviewProposal = async (req, res) => {
       return res.status(404).json({ message: "Proposal not found" });
     }
 
+    const submittedProposal = await SubmittedProposal.findOne({ proposal_id });
+    if (submittedProposal && submittedProposal.isSended) {
+      return res.status(400).json({ message: "Proposal has already been sent for review" });
+    }
+
     const review = new Review({
       dosen: dosen_id,
       proposal: proposal_id,
     });
     await review.save();
 
+    if (submittedProposal) {
+      submittedProposal.isSended = true;
+      await submittedProposal.save();
+    } else {
+      await SubmittedProposal.create({
+        proposal_id,
+        admin_id: req.user._id,
+        isSended: true
+      });
+    }
+
     await sendProposalNotification(dosen_email);
 
-    res
-      .status(201)
-      .json({ message: "Proposal sent for review successfullyss" });
+    res.status(201).json({ message: "Proposal sent for review successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -107,7 +123,9 @@ exports.getReviewsForDosen = async (req, res) => {
 
     const proposalIds = reviewProposals.map((review) => review.proposal);
 
-    const proposals = await Proposal.find({ _id: { $in: proposalIds } });
+    const proposals = await Proposal.find({
+      _id: { $in: proposalIds },
+    }).populate("user_id", "username email"); 
 
     if (!proposals || proposals.length === 0) {
       return res
@@ -123,7 +141,6 @@ exports.getReviewsForDosen = async (req, res) => {
 
 exports.getReviewedProposalByProposalId = async (req, res) => {
   try {
-
     const review = await Review.findOne({
       proposal: proposalId,
       dosen: dosenId,

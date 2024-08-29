@@ -11,6 +11,10 @@ const submittedProposalSchema = new mongoose.Schema({
     ref: 'User', 
     required: true
   },
+  isSended: {
+    type: Boolean,
+    default: false 
+  }
 }, { timestamps: true });
 
 const SubmittedProposal = mongoose.model('SubmittedProposal', submittedProposalSchema);
