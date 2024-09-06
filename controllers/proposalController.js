@@ -1,9 +1,11 @@
 const Proposal = require("../models/Proposal");
 const SubmittedProposal = require("../models/SubmittedProposal");
+const ReviewProposal = require("../models/ReviewProposal");
+const Review = require("../models/Review");
 const History = require("../models/History");
 const proposalService = require("../services/proposalService");
 const transporter = require("../services/emailConfig");
-const moment = require('moment-timezone');
+const moment = require("moment-timezone");
 
 exports.saveProposal = async (req, res) => {
   try {
@@ -11,14 +13,16 @@ exports.saveProposal = async (req, res) => {
     const user_id = req.user.userId;
 
     if (!user_id) {
-      return res.status(400).json({ message: "User ID is not found in the token" });
+      return res
+        .status(400)
+        .json({ message: "User ID is not found in the token" });
     }
 
     console.log("User ID from token:", user_id);
 
     // Check if formulirs is an array
     let parsedFormulirs;
-    if (typeof formulirs === 'string') {
+    if (typeof formulirs === "string") {
       try {
         parsedFormulirs = JSON.parse(formulirs);
       } catch (e) {
@@ -27,13 +31,15 @@ exports.saveProposal = async (req, res) => {
     } else if (Array.isArray(formulirs)) {
       parsedFormulirs = formulirs;
     } else {
-      return res.status(400).json({ message: "Formulirs must be an array and cannot be empty" });
+      return res
+        .status(400)
+        .json({ message: "Formulirs must be an array and cannot be empty" });
     }
 
     // Validate each formulir
-    const processedFormulirs = parsedFormulirs.map(formulir => {
+    const processedFormulirs = parsedFormulirs.map((formulir) => {
       if (!formulir.judulFormulir || !formulir.isi) {
-        throw new Error('Each formulir must have a judulFormulir and isi');
+        throw new Error("Each formulir must have a judulFormulir and isi");
       }
 
       // Additional validation or processing for base64 images can be added here
@@ -56,8 +62,6 @@ exports.saveProposal = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-
 
 exports.adminGetProposal = async (req, res) => {
   try {
@@ -101,7 +105,9 @@ exports.sendProposaltoAdmin = async (req, res) => {
     await submittedProposal.save();
 
     // Convert createdAt to WIB
-    const createdAtWIB = moment(submittedProposal.createdAt).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss');
+    const createdAtWIB = moment(submittedProposal.createdAt)
+      .tz("Asia/Jakarta")
+      .format("YYYY-MM-DD HH:mm:ss");
 
     res.status(200).json({
       message: "Proposal berhasil dikirim ke admin",
@@ -110,13 +116,12 @@ exports.sendProposaltoAdmin = async (req, res) => {
         createdAt: createdAtWIB,
         proposalTitle: proposal.judul,
         adminId: submittedProposal.admin_id,
-      }
+      },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 exports.getProposalById = async (req, res) => {
   try {
@@ -181,10 +186,10 @@ exports.adminGetSubmittedProposals = async (req, res) => {
   try {
     const submittedProposals = await SubmittedProposal.find()
       .populate({
-        path: 'admin_id',
-        match: { role: 'admin' }, // Pastikan hanya admin yang diambil
+        path: "admin_id",
+        match: { role: "admin" }, // Pastikan hanya admin yang diambil
       })
-      .populate('proposal_id');
+      .populate("proposal_id");
 
     if (submittedProposals.length === 0) {
       return res.status(404).json({ message: "No submitted proposals found" });
@@ -196,19 +201,22 @@ exports.adminGetSubmittedProposals = async (req, res) => {
   }
 };
 
-
 exports.getUserProposals = async (req, res) => {
   try {
     const user_id = req.user.userId;
 
     if (!user_id) {
-      return res.status(400).json({ message: "User ID is not found in the token" });
+      return res
+        .status(400)
+        .json({ message: "User ID is not found in the token" });
     }
 
     const proposals = await Proposal.find({ user_id });
 
     if (proposals.length === 0) {
-      return res.status(404).json({ message: "No proposals found for this user" });
+      return res
+        .status(404)
+        .json({ message: "No proposals found for this user" });
     }
 
     res.status(200).json(proposals);
@@ -216,7 +224,6 @@ exports.getUserProposals = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 exports.deleteProposalById = async (req, res) => {
   try {
@@ -234,4 +241,40 @@ exports.deleteProposalById = async (req, res) => {
   }
 };
 
+exports.getReviewsForProposal = async (req, res) => {
+  try {
+    const proposalId = req.params.proposalId;
+    const userId = req.user.userId;
+
+    // Find the proposal and check if it belongs to the user
+    const proposal = await Proposal.findById(proposalId);
+    if (!proposal) {
+      return res.status(404).json({ message: "Proposal not found" });
+    }
+    
+    if (proposal.user_id.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Unauthorized access to reviews" });
+    }
+
+    // Find all reviews for the given proposal
+    const reviewProposals = await ReviewProposal.find({ proposal: proposalId })
+      .populate('dosen', 'nama email') // Populate dosen details
+      .populate('proposal', 'judul'); // Optionally populate proposal details
+
+    if (!reviewProposals || reviewProposals.length === 0) {
+      return res.status(404).json({ message: "No reviews found for this proposal" });
+    }
+
+    // Format the response to include comments and dosen details
+    const response = reviewProposals.map(review => ({
+      komentar: review.komentar,
+      dosenNama: review.dosen ? review.dosen.nama : 'Unknown',
+      dosenEmail: review.dosen ? review.dosen.email : 'Unknown',
+    }));
+
+    res.status(200).json(response);   
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
