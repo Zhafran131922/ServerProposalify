@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/Role'); // Adjust the path as needed
 
 
-const authenticateToken = (req, res, next) => {
+const authUser = (req, res, next) => {
   const authHeader = req.header('Authorization');
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -21,4 +21,4 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
-module.exports = authenticateToken;
+module.exports = authUser;

@@ -4,6 +4,92 @@ const Dosen = require("../models/Dosen");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+//BARU 
+
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    let user;
+    let role;
+    let bidangKeahlian;
+    let username;
+
+    // Cek apakah user adalah user biasa
+    user = await User.findOne({ email });
+    if (user) {
+      role = user.role;
+      username = user.username;  // Ambil username dari User model
+    } else {
+      // Jika tidak, cek apakah user adalah dosen
+      user = await Dosen.findOne({ email });
+      if (user) {
+        role = "dosen";
+        bidangKeahlian = user.bidangKeahlian;
+        username = user.nama;  // Ambil username dari Dosen model
+      } else {
+        return res.status(401).json({ message: "Email atau kata sandi salah" });
+      }
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Email atau kata sandi salah" });
+    }
+
+    // Buat token dengan payload yang benar
+    const tokenPayload = role === "dosen" ? { dosenId: user._id, role: role } : { userId: user._id, role: role };
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    const response = {
+      message: "Login berhasil",
+      role,
+      username,  
+      token,
+    };
+
+    if (role === "dosen") {
+      response.bidangKeahlian = bidangKeahlian;
+    }
+
+    res.status(200).json(response);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.register = async (req, res) => {
+  try {
+    const { username, email, password, role } = req.body;
+
+    if (role !== "user" && role !== "admin") {
+      return res.status(400).json({ message: "Role tidak valid" });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email sudah terdaftar" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = new User({
+      username,
+      email,
+      password: hashedPassword,
+      role,
+    });
+
+    await user.save();
+
+    res.status(201).json({ message: "Pendaftaran berhasil" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 exports.registerDosen = async (req, res) => { // Tidak Digunakan
   try {
     const { nama, email, password, bidangKeahlian } = req.body;
@@ -150,88 +236,6 @@ exports.loginDosen = async (req, res) => {
     });
 
     res.status(200).json({ message: "Login berhasil", token });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-//BARU 
-
-exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    let user;
-    let role;
-    let bidangKeahlian;
-
-    // Cek apakah user adalah user biasa
-    user = await User.findOne({ email });
-    if (user) {
-      role = user.role;
-    } else {
-      // Jika tidak, cek apakah user adalah dosen
-      user = await Dosen.findOne({ email });
-      if (user) {
-        role = "dosen";
-        bidangKeahlian = user.bidangKeahlian;
-      } else {
-        return res.status(401).json({ message: "Email atau kata sandi salah" });
-      }
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: "Email atau kata sandi salah" });
-    }
-
-    // Buat token dengan payload yang benar
-    const tokenPayload = role === "dosen" ? { dosenId: user._id, role: role } : { userId: user._id, role: role };
-    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-
-    const response = {
-      message: "Login berhasil",
-      role,
-      token,
-    };
-
-    if (role === "dosen") {
-      response.bidangKeahlian = bidangKeahlian;
-    }
-
-    res.status(200).json(response);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-exports.register = async (req, res) => {
-  try {
-    const { username, email, password, role } = req.body;
-
-    if (role !== "user" && role !== "admin") {
-      return res.status(400).json({ message: "Role tidak valid" });
-    }
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "Email sudah terdaftar" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = new User({
-      username,
-      email,
-      password: hashedPassword,
-      role,
-    });
-
-    await user.save();
-
-    res.status(201).json({ message: "Pendaftaran berhasil" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

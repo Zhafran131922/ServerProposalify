@@ -41,9 +41,6 @@ exports.saveProposal = async (req, res) => {
       if (!formulir.judulFormulir || !formulir.isi) {
         throw new Error("Each formulir must have a judulFormulir and isi");
       }
-
-      // Additional validation or processing for base64 images can be added here
-
       return formulir;
     });
 
@@ -56,7 +53,15 @@ exports.saveProposal = async (req, res) => {
 
     await proposal.save();
 
-    res.status(201).json({ message: "Proposal berhasil disimpan" });
+    // Format last saved time (updatedAt) to a readable format (e.g., Asia/Jakarta timezone)
+    const lastSavedAt = moment(proposal.updatedAt)
+      .tz("Asia/Jakarta")
+      .format("YYYY-MM-DD HH:mm:ss");
+
+    res.status(201).json({
+      message: "Proposal berhasil disimpan",
+      lastSavedAt, // Return last saved time
+    });
   } catch (error) {
     console.error("Error during proposal save:", error);
     res.status(500).json({ message: error.message });
@@ -278,3 +283,97 @@ exports.getReviewsForProposal = async (req, res) => {
   }
 };
 
+exports.getUserProposalsWithReviews = async (req, res) => {
+  try {
+    const user_id = req.user.userId;
+
+    // Pastikan user_id ada dalam token
+    if (!user_id) {
+      return res.status(400).json({ message: "User ID is not found in the token" });
+    }
+
+    // Temukan semua proposal yang dimiliki oleh user_id
+    const proposals = await Proposal.find({ user_id });
+
+    if (!proposals || proposals.length === 0) {
+      return res.status(404).json({ message: "No proposals found for this user" });
+    }
+
+    // Loop melalui setiap proposal untuk mengambil review terkait
+    const proposalsWithReviews = await Promise.all(
+      proposals.map(async (proposal) => {
+        // Temukan semua review yang terkait dengan proposal
+        const reviews = await ReviewProposal.find({ proposal: proposal._id })
+          .populate('dosen', 'nama email') // Populate dosen's nama dan email
+          .populate('proposal', 'judul'); // Populate judul proposal (optional)
+
+        // Jika tidak ada review, tetap sertakan proposal tanpa review
+        return {
+          proposalTitle: proposal.judul,
+          reviews: reviews.map((review) => ({
+            komentar: review.komentar,
+            dosenNama: review.dosen ? review.dosen.nama : 'Unknown',
+            dosenEmail: review.dosen ? review.dosen.email : 'Unknown',
+          })),
+        };
+      })
+    );
+
+    res.status(200).json(proposalsWithReviews);
+  } catch (error) {
+    console.error("Error fetching user proposals with reviews:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getProposalByIdWithStatus = async (req, res) => {
+  try {
+    const { proposalId } = req.params;
+
+    // Log the userId and proposalId for debugging
+    console.log('UserId from token:', req.user.userId);
+    console.log('ProposalId from request params:', proposalId);
+
+    // Fetch the proposal by ID and ensure the proposal belongs to the authenticated user
+    const proposal = await Proposal.findOne({
+      _id: proposalId,
+      user_id: req.user.userId,// Make sure userId is properly set
+    });
+
+    if (!proposal) {
+      console.log('No proposal found for this user or proposal does not exist.');
+      return res.status(404).json({ message: "Proposal not found or you do not have access to it." });
+    }
+
+    // Check if the proposal has been submitted to the admin
+    const submittedProposal = await SubmittedProposal.findOne({
+      proposal_id: proposalId,
+    });
+
+    if (submittedProposal) {
+      // If the proposal has been sent to the admin, mark it as 'Sended'
+      proposal.status = "Sended";
+    }
+
+    // Check if the proposal is currently being reviewed by dosen
+    const review = await Review.findOne({
+      proposal: proposalId,
+    });
+
+    if (review) {
+      // If the proposal is being reviewed by a dosen, mark it as 'On Progress'
+      proposal.status = "On Progress";
+    }
+
+    // Return the proposal with updated status
+    res.status(200).json({
+      proposalId: proposal._id,
+      title: proposal.judul,
+      status: proposal.status,
+      details: proposal,
+    });
+  } catch (error) {
+    console.error("Error fetching proposal:", error);
+    res.status(500).json({ message: error.message });
+  }
+};

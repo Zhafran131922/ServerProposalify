@@ -2,7 +2,7 @@ const User = require('../models/Role');
 
 
 //Middleware user save,edit, delete, submit proposal
-const checkUserRole = async (req, res, next) => {
+const authorizeUser = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.userId);
     if (user.role !== 'user') {
@@ -15,4 +15,4 @@ const checkUserRole = async (req, res, next) => {
 };
 
 
-module.exports = checkUserRole;
+module.exports = authorizeUser;

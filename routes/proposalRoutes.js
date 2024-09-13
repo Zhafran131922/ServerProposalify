@@ -6,9 +6,6 @@ const authorizeUser = require("../middleware/authorizeUser");
 const authAdmin = require("../middleware/authAdmin");
 const multer = require('multer');
 
-
-
-
 router.post('/proposals', authenticateToken, authorizeUser, proposalController.saveProposal);
 router.get("/proposals/:id", authAdmin, proposalController.adminGetProposal);
 router.get("/saved-proposals/:user_id", authAdmin, proposalController.adminGetUserProposals);
@@ -19,6 +16,8 @@ router.get("/:proposalId", proposalController.getProposalById);
 router.put("/:proposalId", authenticateToken, authorizeUser, proposalController.editProposalById);
 router.delete("/:proposalId", authenticateToken, authorizeUser, proposalController.deleteProposalById);
 router.get("/reviews/:proposalId",authenticateToken, authorizeUser,  proposalController.getReviewsForProposal);
- 
+router.get("/reviewed-proposal/by-user", authenticateToken, authorizeUser, proposalController.getUserProposalsWithReviews);
+router.get('/proposal/:userId/:proposalId/status',authenticateToken, authorizeUser, proposalController.getProposalByIdWithStatus);
+
 
 module.exports = router;

@@ -11,22 +11,34 @@ exports.reviewProposal = async (req, res) => {
   try {
     const { proposal_id, dosen_id, dosen_email } = req.body;
 
+    // Temukan proposal berdasarkan ID
     const proposal = await Proposal.findById(proposal_id);
     if (!proposal) {
       return res.status(404).json({ message: "Proposal not found" });
     }
 
+    // Cek apakah proposal sudah dikirim untuk direview
     const submittedProposal = await SubmittedProposal.findOne({ proposal_id });
     if (submittedProposal && submittedProposal.isSended) {
       return res.status(400).json({ message: "Proposal has already been sent for review" });
     }
 
+    // Buat review baru untuk dosen
     const review = new Review({
       dosen: dosen_id,
       proposal: proposal_id,
     });
     await review.save();
 
+    // Perbarui status menjadi 'On Progress' di model Proposal
+    proposal.status = "On Progress";
+    proposal.isTrue = true;
+    await proposal.save();
+
+    // Log untuk memeriksa apakah status diperbarui
+    console.log(`Proposal status after save: ${proposal.status}`);
+
+    // Update atau buat submittedProposal
     if (submittedProposal) {
       submittedProposal.isSended = true;
       await submittedProposal.save();
@@ -34,10 +46,11 @@ exports.reviewProposal = async (req, res) => {
       await SubmittedProposal.create({
         proposal_id,
         admin_id: req.user._id,
-        isSended: true
+        isSended: true,
       });
     }
 
+    // Kirim notifikasi ke dosen
     await sendProposalNotification(dosen_email);
 
     res.status(201).json({ message: "Proposal sent for review successfully" });
@@ -157,35 +170,3 @@ exports.getReviewedProposalByProposalId = async (req, res) => {
   }
 };
 
-exports.getUserProposalReviews = async (req, res) => {
-  try {
-    const proposalId = req.params.proposalId;
-    const userId = req.user.userId; // user ID from token
-
-    // Cek apakah proposal itu milik user yang sedang login
-    const proposal = await Proposal.findOne({ _id: proposalId, user_id: userId });
-    if (!proposal) {
-      return res.status(404).json({ message: "Proposal not found or you do not have access to this proposal" });
-    }
-
-    // Ambil semua review terkait proposal tersebut
-    const reviews = await Review.find({ proposal: proposalId })
-      .populate("dosen", "nama email");
-
-    if (!reviews || reviews.length === 0) {
-      return res.status(404).json({ message: "No reviews found for this proposal" });
-    }
-
-    // Format response dengan komentar dan data dosen
-    const reviewResponse = reviews.map(review => ({
-      komentar: review.komentar,
-      dosenNama: review.dosen ? review.dosen.nama : "Unknown",
-      dosenEmail: review.dosen ? review.dosen.email : "Unknown",
-    }));
-
-    res.status(200).json(reviewResponse);
-  } catch (error) {
-    console.error("Error fetching proposal reviews:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
