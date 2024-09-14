@@ -17,7 +17,7 @@ const proposalSchema = new mongoose.Schema({
   isAcceptedByDosen: { type: Boolean, default: false },  // New field to track acceptance by dosen
   isSendedToAdmin: { type: Boolean, default: false },    // New field to track if sent to admin
   isSentToDosen: { type: Boolean, default: false },      // New field to track if sent to dosen
-}, { timestamps: true }); // This will add `createdAt` and `updatedAt` fields automatically
+}, { timestamps: true }); 
 
 const Proposal = mongoose.model("Proposal", proposalSchema);
 module.exports = Proposal;

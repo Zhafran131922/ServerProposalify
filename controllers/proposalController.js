@@ -95,21 +95,26 @@ exports.adminGetUserProposals = async (req, res) => {
 exports.sendProposaltoAdmin = async (req, res) => {
   try {
     const { proposalId, adminId } = req.body;
+    const userId = req.user.userId; // Mendapatkan userId dari token
 
-    const proposal = await Proposal.findById(proposalId);
+    // Cari proposal berdasarkan ID dan pastikan user_id cocok dengan userId dari token
+    const proposal = await Proposal.findOne({ _id: proposalId, user_id: userId });
     if (!proposal) {
-      return res.status(404).json({ message: "Proposal tidak ditemukan" });
+      return res.status(404).json({ message: "Proposal tidak ditemukan atau tidak sesuai dengan user" });
     }
+
+    // Update admin_id dan simpan proposal
     proposal.admin_id = adminId;
     await proposal.save();
 
+    // Simpan submitted proposal
     const submittedProposal = new SubmittedProposal({
       proposal_id: proposal._id,
       admin_id: adminId,
     });
     await submittedProposal.save();
 
-    // Convert createdAt to WIB
+    // Convert createdAt ke WIB
     const createdAtWIB = moment(submittedProposal.createdAt)
       .tz("Asia/Jakarta")
       .format("YYYY-MM-DD HH:mm:ss");
@@ -127,6 +132,8 @@ exports.sendProposaltoAdmin = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
 
 exports.getProposalById = async (req, res) => {
   try {
