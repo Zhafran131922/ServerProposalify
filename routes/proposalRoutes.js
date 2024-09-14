@@ -17,7 +17,7 @@ router.put("/:proposalId", authenticateToken, authorizeUser, proposalController.
 router.delete("/:proposalId", authenticateToken, authorizeUser, proposalController.deleteProposalById);
 router.get("/reviews/:proposalId",authenticateToken, authorizeUser,  proposalController.getReviewsForProposal);
 router.get("/reviewed-proposal/by-user", authenticateToken, authorizeUser, proposalController.getUserProposalsWithReviews);
-router.get('/proposal/:userId/:proposalId/status',authenticateToken, authorizeUser, proposalController.getProposalByIdWithStatus);
+router.get('/proposal/:proposalId/status',authenticateToken, authorizeUser, proposalController.getProposalByIdWithStatus);
 
 
 module.exports = router;

@@ -337,7 +337,7 @@ exports.getProposalByIdWithStatus = async (req, res) => {
     // Fetch the proposal by ID and ensure the proposal belongs to the authenticated user
     const proposal = await Proposal.findOne({
       _id: proposalId,
-      user_id: req.user.userId,// Make sure userId is properly set
+      user_id: req.user.userId, // Use userId from token
     });
 
     if (!proposal) {
