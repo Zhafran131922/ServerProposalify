@@ -221,16 +221,53 @@ exports.getUserProposals = async (req, res) => {
         .json({ message: "User ID is not found in the token" });
     }
 
-    const proposals = await Proposal.find({ user_id });
+    // Fetch all proposals for the user
+    const proposals = await Proposal.find({ user_id }).lean();
 
     if (proposals.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "No proposals found for this user" });
+      return res.status(404).json({ message: "No proposals found for this user" });
     }
 
-    res.status(200).json(proposals);
+    // Iterate through each proposal to assign status and format lastSavedAt
+    const formattedProposals = await Promise.all(proposals.map(async (proposal) => {
+      let proposalStatus = "Draft"; // Default status is Draft
+
+      // Check if the proposal has been submitted to the admin (Sended status)
+      const submittedProposal = await SubmittedProposal.findOne({ proposal_id: proposal._id });
+      if (submittedProposal) {
+        proposalStatus = "Sended";
+      }
+
+      // Check if the proposal is under review by a dosen (On Progress status)
+      const review = await Review.findOne({ proposal: proposal._id });
+      if (review) {
+        proposalStatus = "On Progress";
+      }
+
+      // Check if the proposal is accepted by a dosen (Accepted status)
+      if (proposal.isAcceptedByDosen) {
+        proposalStatus = "Accepted";
+      }
+
+      // Format last saved time (updatedAt) to a readable format in Asia/Jakarta timezone and add WIB
+      const lastSavedAt = moment(proposal.updatedAt)
+        .tz("Asia/Jakarta")
+        .format("YYYY-MM-DD HH:mm:ss") + " WIB"; // Add 'WIB' at the end
+
+      return {
+        id: proposal._id,
+        title: proposal.judul,
+        description: proposal.description,
+        status: proposalStatus, // Status after determining based on conditions
+        lastSavedAt, // Add lastSavedAt field with 'WIB'
+        createdAt: proposal.createdAt,
+      };
+    }));
+
+    // Return the formatted proposals with updated status and lastSavedAt
+    res.status(200).json(formattedProposals);
   } catch (error) {
+    console.error("Error fetching proposals:", error);
     res.status(500).json({ message: error.message });
   }
 };
