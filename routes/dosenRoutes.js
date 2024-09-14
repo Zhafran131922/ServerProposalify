@@ -10,5 +10,7 @@ router.get("/reviews/:proposalId", authDosen, reviewController.getProposalReview
 router.get("/dosen/:dosenId", authDosen, reviewController.getReviewsForDosen);
 router.get("/:proposalId", authDosen, reviewController.getProposal);
 router.get("/reviewed-proposal/:dosenId/:proposalId", authDosen, getReviewedProposalByProposalId);
+router.post("/proposal/:proposalId/accept", authDosen, reviewController.acceptProposal);
+router.get('/proposal/:proposalId/status', authDosen, reviewController.getProposalStatus);
 
 module.exports = router;

@@ -7,7 +7,7 @@ const ReviewController = require("../controllers/reviewController");
 
 router.get("/dosens", authAdmin, adminController.getAllDosens);
 router.delete("/dosens/:id", authAdmin, adminController.deleteDosen);
-router.post("/review-proposal", authAdmin, ReviewController.reviewProposal); //send proposal to dosen
+router.post("/review-proposal", authAdmin, ReviewController.sendProposaltoDosen); //send proposal to dosen
 router.get("/proposals/:username",authAdmin, adminController.getProposalsForDosen);
 router.get("/get/user-proposals-date", authAdmin, adminController.getRecentSubmittedProposals);
 

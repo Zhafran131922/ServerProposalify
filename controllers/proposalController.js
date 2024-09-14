@@ -133,8 +133,6 @@ exports.sendProposaltoAdmin = async (req, res) => {
   }
 };
 
-
-
 exports.getProposalById = async (req, res) => {
   try {
     const proposalId = req.params.proposalId;
@@ -372,6 +370,12 @@ exports.getProposalByIdWithStatus = async (req, res) => {
       proposal.status = "On Progress";
     }
 
+    // Check if the proposal has been accepted by dosen
+    if (proposal.isAcceptedByDosen) {
+      // If the proposal is accepted by dosen, mark it as 'Accepted'
+      proposal.status = "Accepted";
+    }
+
     // Return the proposal with updated status
     res.status(200).json({
       proposalId: proposal._id,
@@ -384,3 +388,4 @@ exports.getProposalByIdWithStatus = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+

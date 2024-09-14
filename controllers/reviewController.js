@@ -7,7 +7,7 @@ const sendProposalNotification = require("../services/emailService");
 const sendNotificationToOwner = require("../services/emailService");
 const { getProposalById } = require("./proposalController");
 
-exports.reviewProposal = async (req, res) => {
+exports.sendProposaltoDosen = async (req, res) => {
   try {
     const { proposal_id, dosen_id, dosen_email } = req.body;
 
@@ -33,10 +33,12 @@ exports.reviewProposal = async (req, res) => {
     // Perbarui status menjadi 'On Progress' di model Proposal
     proposal.status = "On Progress";
     proposal.isTrue = true;
+    proposal.isSentToDosen = true;  // Tandai proposal telah dikirim ke dosen
     await proposal.save();
 
     // Log untuk memeriksa apakah status diperbarui
     console.log(`Proposal status after save: ${proposal.status}`);
+    console.log(`isSentToDosen after save: ${proposal.isSentToDosen}`);
 
     // Update atau buat submittedProposal
     if (submittedProposal) {
@@ -53,11 +55,12 @@ exports.reviewProposal = async (req, res) => {
     // Kirim notifikasi ke dosen
     await sendProposalNotification(dosen_email);
 
-    res.status(201).json({ message: "Proposal sent for review successfully" });
+    res.status(201).json({ message: "Proposal sent to dosen successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 exports.getProposal = async (req, res) => {
   try {
@@ -169,4 +172,66 @@ exports.getReviewedProposalByProposalId = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.acceptProposal = async (req, res) => {
+  try {
+    const { proposalId } = req.params;
+    const dosenId = req.dosen._id; // Assuming dosen ID is available in req.dosen
+
+    // Temukan proposal berdasarkan ID
+    const proposal = await Proposal.findById(proposalId);
+    if (!proposal) {
+      return res.status(404).json({ message: "Proposal not found" });
+    }
+
+    // Cek apakah proposal sudah diterima atau belum
+    if (proposal.isAcceptedByDosen) {
+      return res.status(400).json({ message: "Proposal already accepted by dosen" });
+    }
+
+    // Update proposal status
+    proposal.status = "Accepted";
+    proposal.isAcceptedByDosen = true;
+    await proposal.save();
+
+    // Kirim notifikasi kepada pengguna
+    const user = await User.findById(proposal.user_id);
+    if (user) {
+      await sendNotificationToOwner(user.email, proposalId, 'Proposal Accepted');
+    }
+
+    res.status(200).json({ message: "Proposal accepted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getProposalStatus = async (req, res) => {
+  try {
+    const { proposalId } = req.params;
+    const dosenId = req.dosen._id; // Assuming dosen ID is available in req.dosen
+
+    // Temukan proposal berdasarkan ID
+    const proposal = await Proposal.findById(proposalId);
+    if (!proposal) {
+      return res.status(404).json({ message: "Proposal not found" });
+    }
+
+    // Temukan review terkait dosen untuk proposal ini
+    const review = await Review.findOne({
+      proposal: proposalId,
+      dosen: dosenId,
+    });
+
+    // Tentukan status berdasarkan apakah proposal diterima atau belum
+    const status = proposal.isAcceptedByDosen
+      ? "Accepted"
+      : "Not Accepted";
+
+    res.status(200).json({ status });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 
