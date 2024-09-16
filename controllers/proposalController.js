@@ -199,7 +199,13 @@ exports.adminGetSubmittedProposals = async (req, res) => {
         path: "admin_id",
         match: { role: "admin" }, // Pastikan hanya admin yang diambil
       })
-      .populate("proposal_id");
+      .populate({
+        path: "proposal_id",
+        populate: {
+          path: "user_id", // Populate user_id untuk mendapatkan data pengguna
+          select: "username" // Pilih field username saja
+        }
+      });
 
     if (submittedProposals.length === 0) {
       return res.status(404).json({ message: "No submitted proposals found" });
@@ -210,6 +216,7 @@ exports.adminGetSubmittedProposals = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 exports.getUserProposals = async (req, res) => {
   try {
