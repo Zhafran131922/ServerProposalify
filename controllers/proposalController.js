@@ -202,8 +202,8 @@ exports.adminGetSubmittedProposals = async (req, res) => {
       .populate({
         path: "proposal_id",
         populate: {
-          path: "user_id", // Populate user_id untuk mendapatkan data pengguna
-          select: "username" // Pilih field username saja
+          path: "user_id", 
+          select: "username email" 
         }
       });
 
@@ -216,7 +216,6 @@ exports.adminGetSubmittedProposals = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 exports.getUserProposals = async (req, res) => {
   try {
@@ -249,6 +248,12 @@ exports.getUserProposals = async (req, res) => {
       const review = await Review.findOne({ proposal: proposal._id });
       if (review) {
         proposalStatus = "On Progress";
+
+        // Check if the dosen has submitted their review to the user (On Review status)
+        const reviewProposal = await ReviewProposal.findOne({ proposal: proposal._id });
+        if (reviewProposal) {
+          proposalStatus = "On Review";  // Update status to On Review if review exists
+        }
       }
 
       // Check if the proposal is accepted by a dosen (Accepted status)
@@ -278,6 +283,8 @@ exports.getUserProposals = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
 
 exports.deleteProposalById = async (req, res) => {
   try {
@@ -412,6 +419,16 @@ exports.getProposalByIdWithStatus = async (req, res) => {
     if (review) {
       // If the proposal is being reviewed by a dosen, mark it as 'On Progress'
       proposal.status = "On Progress";
+
+      // Check if the dosen has already submitted their review to the user
+      const reviewProposal = await ReviewProposal.findOne({
+        proposal: proposalId,
+      });
+
+      if (reviewProposal) {
+        // If the dosen has submitted the review, mark it as 'On Review'
+        proposal.status = "On Review";
+      }
     }
 
     // Check if the proposal has been accepted by dosen
@@ -432,4 +449,5 @@ exports.getProposalByIdWithStatus = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
