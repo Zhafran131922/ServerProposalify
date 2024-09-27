@@ -18,6 +18,7 @@ router.delete("/:proposalId", authenticateToken, authorizeUser, proposalControll
 router.get("/reviews/:proposalId",authenticateToken, authorizeUser,  proposalController.getReviewsForProposal);
 router.get("/reviewed-proposal/by-user", authenticateToken, authorizeUser, proposalController.getUserProposalsWithReviews);
 router.get('/proposal/:proposalId/status',authenticateToken, authorizeUser, proposalController.getProposalByIdWithStatus);
+router.post('/submit-revision',authenticateToken, authorizeUser, proposalController.submitRevisionToDosen); //role user kiri proposal revisi ke dosen
 
 
 module.exports = router;

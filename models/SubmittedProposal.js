@@ -9,7 +9,7 @@ const submittedProposalSchema = new mongoose.Schema({
   admin_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User', 
-    required: true
+    required: false
   },
   isSended: {
     type: Boolean,

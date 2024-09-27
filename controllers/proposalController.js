@@ -2,7 +2,8 @@ const Proposal = require("../models/Proposal");
 const SubmittedProposal = require("../models/SubmittedProposal");
 const ReviewProposal = require("../models/ReviewProposal");
 const Review = require("../models/Review");
-const History = require("../models/History");
+const Dosen = require("../models/Dosen");
+const sendProposalNotification = require("../services/emailService");
 const proposalService = require("../services/proposalService");
 const transporter = require("../services/emailConfig");
 const moment = require("moment-timezone");
@@ -365,6 +366,7 @@ exports.getUserProposalsWithReviews = async (req, res) => {
 
         // Jika tidak ada review, tetap sertakan proposal tanpa review
         return {
+          proposalId: proposal._id,
           proposalTitle: proposal.judul,
           reviews: reviews.map((review) => ({
             komentar: review.komentar,
@@ -449,5 +451,52 @@ exports.getProposalByIdWithStatus = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.submitRevisionToDosen = async (req, res) => {
+  try {
+    // Ambil userId dari token yang telah di-authenticate
+    const userId = req.user.userId;
+    const { proposalId, dosenId, dosen_email } = req.body;
+
+    // Temukan proposal berdasarkan ID dan pastikan proposal milik userId
+    const proposal = await Proposal.findOne({ _id: proposalId, user_id: userId });
+    if (!proposal) {
+      return res.status(404).json({ message: "Proposal not found for this user" });
+    }
+
+    // Buat review baru untuk dosen
+    const review = new Review({
+      dosen: dosenId,
+      proposal: proposalId,
+      user: userId,
+    });
+    await review.save();
+
+    // Perbarui status menjadi 'On Progress' di model Proposal
+    proposal.status = "On Progress";
+    proposal.isSentToDosen = true; // Tandai proposal telah dikirim ke dosen
+    await proposal.save();
+
+    // Simpan submittedProposal tanpa pengecekan isSended
+    await SubmittedProposal.create({
+      proposal_id: proposalId,
+      user_id: userId,
+      dosen_id: dosenId,
+      isSended: true,
+    });
+
+    // Kirim notifikasi ke dosen
+    await sendProposalNotification(dosen_email);
+
+    // Kembali dengan respons yang mencakup status
+    res.status(201).json({
+      message: "Proposal sent to dosen successfully",
+      status: "On Progress (revision)",
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 
 
