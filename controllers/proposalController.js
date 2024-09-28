@@ -37,15 +37,24 @@ exports.saveProposal = async (req, res) => {
         .json({ message: "Formulirs must be an array and cannot be empty" });
     }
 
-    // Validate each formulir
+    // Validate each formulir to check for text and optional base64 images
     const processedFormulirs = parsedFormulirs.map((formulir) => {
       if (!formulir.judulFormulir || !formulir.isi) {
         throw new Error("Each formulir must have a judulFormulir and isi");
       }
+
+      // Check for text and base64 image in the isi field
+      const base64Regex = /^data:image\/[a-zA-Z]+;base64,/;
+
+      // You can now handle both text and base64 image formats
+      if (!base64Regex.test(formulir.isi) && typeof formulir.isi !== "string") {
+        throw new Error("isi field must be either text or a base64-encoded image");
+      }
+
       return formulir;
     });
 
-    // Create and save proposal
+    // Create and save the proposal
     const proposal = new Proposal({
       user_id,
       judul,
@@ -223,9 +232,7 @@ exports.getUserProposals = async (req, res) => {
     const user_id = req.user.userId;
 
     if (!user_id) {
-      return res
-        .status(400)
-        .json({ message: "User ID is not found in the token" });
+      return res.status(400).json({ message: "User ID is not found in the token" });
     }
 
     // Fetch all proposals for the user
@@ -238,6 +245,7 @@ exports.getUserProposals = async (req, res) => {
     // Iterate through each proposal to assign status and format lastSavedAt
     const formattedProposals = await Promise.all(proposals.map(async (proposal) => {
       let proposalStatus = "Draft"; // Default status is Draft
+      let dosenId = null; // Initialize dosenId to null
 
       // Check if the proposal has been submitted to the admin (Sended status)
       const submittedProposal = await SubmittedProposal.findOne({ proposal_id: proposal._id });
@@ -249,11 +257,12 @@ exports.getUserProposals = async (req, res) => {
       const review = await Review.findOne({ proposal: proposal._id });
       if (review) {
         proposalStatus = "On Progress";
+        dosenId = review.dosen; // Assign dosenId from the review
 
         // Check if the dosen has submitted their review to the user (On Review status)
         const reviewProposal = await ReviewProposal.findOne({ proposal: proposal._id });
         if (reviewProposal) {
-          proposalStatus = "On Review";  // Update status to On Review if review exists
+          proposalStatus = "On Review";
         }
       }
 
@@ -273,6 +282,7 @@ exports.getUserProposals = async (req, res) => {
         description: proposal.description,
         status: proposalStatus, // Status after determining based on conditions
         lastSavedAt, // Add lastSavedAt field with 'WIB'
+        dosenId, // Include dosenId in the response
         createdAt: proposal.createdAt,
       };
     }));
@@ -284,6 +294,7 @@ exports.getUserProposals = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 
 
