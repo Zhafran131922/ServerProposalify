@@ -399,18 +399,13 @@ exports.getProposalByIdWithStatus = async (req, res) => {
   try {
     const { proposalId } = req.params;
 
-    // Log the userId and proposalId for debugging
-    console.log('UserId from token:', req.user.userId);
-    console.log('ProposalId from request params:', proposalId);
-
     // Fetch the proposal by ID and ensure the proposal belongs to the authenticated user
     const proposal = await Proposal.findOne({
       _id: proposalId,
-      user_id: req.user.userId, // Use userId from token
+      user_id: req.user.userId,
     });
 
     if (!proposal) {
-      console.log('No proposal found for this user or proposal does not exist.');
       return res.status(404).json({ message: "Proposal not found or you do not have access to it." });
     }
 
@@ -432,21 +427,15 @@ exports.getProposalByIdWithStatus = async (req, res) => {
     });
 
     if (review) {
-      // Jika ada review aktif, status berubah menjadi "On Progress"
-      proposal.status = "On Progress";
+      // If there is an active review from dosen, status changes to "On Review"
+      proposal.status = "On Review";
 
-      // Check if the dosen has already submitted their review to the user
-      const reviewProposal = await ReviewProposal.findOne({
-        proposal: proposalId,
-      });
-
-      if (reviewProposal) {
-        // Jika dosen sudah mengirim review, ubah status ke "On Review"
-        proposal.status = "On Review";
+      // Check if the user has sent a revision back to the dosen
+      if (proposal.isSentToDosen) {
+        proposal.status = "On Progress"; // Change status to "On Progress" when revision is sent back
       }
     }
 
-    // Check if the proposal has been accepted by dosen
     if (proposal.isAcceptedByDosen) {
       proposal.status = "Accepted";
     }
@@ -459,7 +448,6 @@ exports.getProposalByIdWithStatus = async (req, res) => {
       details: proposal,
     });
   } catch (error) {
-    console.error("Error fetching proposal:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -469,13 +457,13 @@ exports.submitRevisionToDosen = async (req, res) => {
     const userId = req.user.userId;
     const { proposalId, dosenId, dosen_email } = req.body;
 
-    // Temukan proposal berdasarkan ID dan pastikan proposal milik userId
+    // Find the proposal and ensure it belongs to the user
     const proposal = await Proposal.findOne({ _id: proposalId, user_id: userId });
     if (!proposal) {
       return res.status(404).json({ message: "Proposal not found for this user" });
     }
 
-    // Buat review baru untuk dosen
+    // Create a new review for dosen
     const review = new Review({
       dosen: dosenId,
       proposal: proposalId,
@@ -483,12 +471,12 @@ exports.submitRevisionToDosen = async (req, res) => {
     });
     await review.save();
 
-    // Ubah status menjadi "On Progress" karena revisi dikirim
-    proposal.status = "On Progress";
-    proposal.isSentToDosen = true; // Tandai proposal telah dikirim ke dosen
+    // Change status to "On Progress" because revision is sent
+    proposal.status = "On Progress"; // Status changes back to "On Progress"
+    proposal.isSentToDosen = true; // Mark that the proposal has been sent to dosen
     await proposal.save();
 
-    // Simpan submittedProposal tanpa pengecekan isSended
+    // Save the submitted proposal
     await SubmittedProposal.create({
       proposal_id: proposalId,
       user_id: userId,
@@ -496,10 +484,10 @@ exports.submitRevisionToDosen = async (req, res) => {
       isSended: true,
     });
 
-    // Kirim notifikasi ke dosen
+    // Send notification to dosen
     await sendProposalNotification(dosen_email);
 
-    // Kembali dengan respons yang mencakup status terbaru
+    // Return with the latest status
     res.status(201).json({
       message: "Proposal sent to dosen successfully",
       status: "On Progress (revision)",

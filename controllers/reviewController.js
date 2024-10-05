@@ -85,29 +85,46 @@ exports.sendReview = async (req, res) => {
     const proposalId = req.params.proposalId;
     const dosenId = req.dosen._id;
 
-    // Buat objek review baru
+    // 1. Find the proposal by ID
+    const proposal = await Proposal.findById(proposalId);
+    if (!proposal) {
+      return res.status(404).json({ message: "Proposal not found" });
+    }
+
+    // 2. Create a new review object
     const review = new ReviewProposal({
       proposal: proposalId,
       komentar: komentar,
       dosen: dosenId,
     });
+    
+    // Save the review
     await review.save();
 
-    // Kirim notifikasi ke pemilik proposal
+    // 3. Change the proposal status to "On Review"
+    console.log("Status before update:", proposal.status);
+    proposal.status = "On Review"; // Change status to "On Review"
+    proposal.isSentToDosen = false; // Reset isSentToDosen since dosen is reviewing
+    await proposal.save();
+    console.log("Status after update:", proposal.status);
+
+    // 4. Send notification to the proposal owner
     await sendNotificationToOwner(recipientEmail, proposalId);
 
-    // Ambil waktu saat ini di zona waktu WIB
+    // 5. Get the current time in WIB
     const currentTimeWIB = moment().tz("Asia/Jakarta").format('YYYY-MM-DD HH:mm:ss');
 
-    // Kembali dengan respons yang mencakup waktu pengiriman dalam WIB
+    // Respond with the current submission time
     res.status(201).json({
       message: "Review submitted successfully",
-      createdAt: currentTimeWIB, // Tanggal dan waktu saat ini dalam WIB
+      createdAt: currentTimeWIB,
     });
   } catch (error) {
+    console.error("Error in sendReview:", error);
     res.status(500).json({ message: error.message });
   }
 };
+
 
 
 exports.getProposalReviews = async (req, res) => {
