@@ -14,12 +14,8 @@ const reviewProposalSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Dosen',
     required: true,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
   }
-});
+}, { timestamps: true }); // Enable timestamps to automatically handle createdAt and updatedAt
 
 const ReviewProposal = mongoose.model('ReviewProposal', reviewProposalSchema);
 

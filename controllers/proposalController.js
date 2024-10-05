@@ -414,13 +414,15 @@ exports.getProposalByIdWithStatus = async (req, res) => {
       return res.status(404).json({ message: "Proposal not found or you do not have access to it." });
     }
 
+    // Default status
+    proposal.status = "Draft";
+
     // Check if the proposal has been submitted to the admin
     const submittedProposal = await SubmittedProposal.findOne({
       proposal_id: proposalId,
     });
 
     if (submittedProposal) {
-      // If the proposal has been sent to the admin, mark it as 'Sended'
       proposal.status = "Sended";
     }
 
@@ -430,7 +432,7 @@ exports.getProposalByIdWithStatus = async (req, res) => {
     });
 
     if (review) {
-      // If the proposal is being reviewed by a dosen, mark it as 'On Progress'
+      // Jika ada review aktif, status berubah menjadi "On Progress"
       proposal.status = "On Progress";
 
       // Check if the dosen has already submitted their review to the user
@@ -439,14 +441,13 @@ exports.getProposalByIdWithStatus = async (req, res) => {
       });
 
       if (reviewProposal) {
-        // If the dosen has submitted the review, mark it as 'On Review'
+        // Jika dosen sudah mengirim review, ubah status ke "On Review"
         proposal.status = "On Review";
       }
     }
 
     // Check if the proposal has been accepted by dosen
     if (proposal.isAcceptedByDosen) {
-      // If the proposal is accepted by dosen, mark it as 'Accepted'
       proposal.status = "Accepted";
     }
 
@@ -465,7 +466,6 @@ exports.getProposalByIdWithStatus = async (req, res) => {
 
 exports.submitRevisionToDosen = async (req, res) => {
   try {
-    // Ambil userId dari token yang telah di-authenticate
     const userId = req.user.userId;
     const { proposalId, dosenId, dosen_email } = req.body;
 
@@ -483,7 +483,7 @@ exports.submitRevisionToDosen = async (req, res) => {
     });
     await review.save();
 
-    // Perbarui status menjadi 'On Progress' di model Proposal
+    // Ubah status menjadi "On Progress" karena revisi dikirim
     proposal.status = "On Progress";
     proposal.isSentToDosen = true; // Tandai proposal telah dikirim ke dosen
     await proposal.save();
@@ -499,7 +499,7 @@ exports.submitRevisionToDosen = async (req, res) => {
     // Kirim notifikasi ke dosen
     await sendProposalNotification(dosen_email);
 
-    // Kembali dengan respons yang mencakup status
+    // Kembali dengan respons yang mencakup status terbaru
     res.status(201).json({
       message: "Proposal sent to dosen successfully",
       status: "On Progress (revision)",
@@ -508,6 +508,3 @@ exports.submitRevisionToDosen = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-
-

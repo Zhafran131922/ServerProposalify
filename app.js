@@ -34,7 +34,11 @@ app.use(bodyParser.json());
 
 // Middlewares
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000', // Allow requests from this origin
+  methods: 'GET,POST,PUT,DELETE',  // Specify the allowed methods
+  credentials: true // If you need to allow cookies or authorization headers
+}));
 app.use(morgan("dev"));
 app.use(authenticateUser);
 app.use(bodyParser.urlencoded({ extended: true })); // Supports form-data

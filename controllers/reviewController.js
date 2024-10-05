@@ -6,6 +6,7 @@ const User = require("../models/Role");
 const sendProposalNotification = require("../services/emailService");
 const sendNotificationToOwner = require("../services/emailService");
 const { getProposalById } = require("./proposalController");
+const moment = require('moment-timezone');
 
 exports.sendProposaltoDosen = async (req, res) => {
   try {
@@ -84,6 +85,7 @@ exports.sendReview = async (req, res) => {
     const proposalId = req.params.proposalId;
     const dosenId = req.dosen._id;
 
+    // Buat objek review baru
     const review = new ReviewProposal({
       proposal: proposalId,
       komentar: komentar,
@@ -91,9 +93,17 @@ exports.sendReview = async (req, res) => {
     });
     await review.save();
 
+    // Kirim notifikasi ke pemilik proposal
     await sendNotificationToOwner(recipientEmail, proposalId);
 
-    res.status(201).json({ message: "Review submitted successfully" });
+    // Ambil waktu saat ini di zona waktu WIB
+    const currentTimeWIB = moment().tz("Asia/Jakarta").format('YYYY-MM-DD HH:mm:ss');
+
+    // Kembali dengan respons yang mencakup waktu pengiriman dalam WIB
+    res.status(201).json({
+      message: "Review submitted successfully",
+      createdAt: currentTimeWIB, // Tanggal dan waktu saat ini dalam WIB
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
