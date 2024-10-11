@@ -35,9 +35,9 @@ app.use(bodyParser.json());
 // Middlewares
 app.use(express.json());
 app.use(cors({
-  origin: 'http://localhost:3000', // Allow requests from this origin
-  methods: 'GET,POST,PUT,DELETE',  // Specify the allowed methods
-  credentials: true // If you need to allow cookies or authorization headers
+  origin: "*", // Allow all origins (modify as needed)
+  methods: "GET, POST, PUT, DELETE, OPTIONS",
+  allowedHeaders: "Authorization, Content-Type"
 }));
 app.use(morgan("dev"));
 app.use(authenticateUser);
