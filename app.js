@@ -34,11 +34,9 @@ app.use(bodyParser.json());
 
 // Middlewares
 app.use(express.json());
-app.use(cors({
-  origin: "*", // Allow all origins (modify as needed)
-  methods: "GET, POST, PUT, DELETE, OPTIONS",
-  allowedHeaders: "Authorization, Content-Type"
-}));
+app.use(cors());
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 app.use(morgan("dev"));
 app.use(authenticateUser);
 app.use(bodyParser.urlencoded({ extended: true })); // Supports form-data

@@ -6,7 +6,85 @@ const User = require("../models/Role");
 const sendProposalNotification = require("../services/emailService");
 const sendNotificationToOwner = require("../services/emailService");
 const { getProposalById } = require("./proposalController");
-const moment = require('moment-timezone');
+const moment = require("moment-timezone");
+const Dosen = require("../models/Dosen");
+const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
+const bcrypt = require("bcryptjs");
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL,
+    pass: process.env.PASSWORD,
+  },
+});
+
+exports.requestOtpForPasswordChange = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Find the dosen by email
+    const dosen = await Dosen.findOne({ email });
+    if (!dosen) {
+      return res.status(404).json({ message: "Email tidak ditemukan" });
+    }
+
+    // Generate a 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Create a token with OTP, valid for 15 minutes
+    const otpToken = jwt.sign({ otp, email }, process.env.JWT_SECRET, {
+      expiresIn: "15m",
+    });
+
+    // Send email with OTP
+    const mailOptions = {
+      from: "proposalify01@gmail.com",
+      to: email,
+      subject: "Kode OTP untuk Ubah Password",
+      text: `Kode OTP Anda adalah: ${otp}`,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res
+      .status(200)
+      .json({ message: "Kode OTP telah dikirim ke email Anda", otpToken });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.updateDosenPassword = async (req, res) => {
+  try {
+    const { otpToken, otp, newPassword } = req.body;
+
+    // Verify the OTP token
+    const decoded = jwt.verify(otpToken, process.env.JWT_SECRET); // Fixed environment variable
+
+    if (decoded.otp !== otp) {
+      return res.status(400).json({ message: "Kode OTP salah" });
+    }
+
+    // Find the dosen by email
+    const dosen = await Dosen.findOne({ email: decoded.email });
+    if (!dosen) {
+      return res.status(404).json({ message: "Dosen tidak ditemukan" });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update the dosen's password
+    dosen.password = hashedPassword;
+    await dosen.save();
+
+    res.status(200).json({ message: "Password berhasil diubah" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 
 exports.sendProposaltoDosen = async (req, res) => {
   try {
@@ -21,7 +99,9 @@ exports.sendProposaltoDosen = async (req, res) => {
     // Cek apakah proposal sudah dikirim untuk direview
     const submittedProposal = await SubmittedProposal.findOne({ proposal_id });
     if (submittedProposal && submittedProposal.isSended) {
-      return res.status(400).json({ message: "Proposal has already been sent for review" });
+      return res
+        .status(400)
+        .json({ message: "Proposal has already been sent for review" });
     }
 
     // Buat review baru untuk dosen
@@ -34,7 +114,7 @@ exports.sendProposaltoDosen = async (req, res) => {
     // Perbarui status menjadi 'On Progress' di model Proposal
     proposal.status = "On Progress";
     proposal.isTrue = true;
-    proposal.isSentToDosen = true;  // Tandai proposal telah dikirim ke dosen
+    proposal.isSentToDosen = true; // Tandai proposal telah dikirim ke dosen
     await proposal.save();
 
     // Log untuk memeriksa apakah status diperbarui
@@ -61,7 +141,6 @@ exports.sendProposaltoDosen = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 exports.getProposal = async (req, res) => {
   try {
@@ -97,7 +176,7 @@ exports.sendReview = async (req, res) => {
       komentar: komentar,
       dosen: dosenId,
     });
-    
+
     // Save the review
     await review.save();
 
@@ -112,7 +191,9 @@ exports.sendReview = async (req, res) => {
     await sendNotificationToOwner(recipientEmail, proposalId);
 
     // 5. Get the current time in WIB
-    const currentTimeWIB = moment().tz("Asia/Jakarta").format('YYYY-MM-DD HH:mm:ss');
+    const currentTimeWIB = moment()
+      .tz("Asia/Jakarta")
+      .format("YYYY-MM-DD HH:mm:ss");
 
     // Respond with the current submission time
     res.status(201).json({
@@ -124,8 +205,6 @@ exports.sendReview = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-
 
 exports.getProposalReviews = async (req, res) => {
   try {
@@ -169,7 +248,7 @@ exports.getReviewsForDosen = async (req, res) => {
 
     const proposals = await Proposal.find({
       _id: { $in: proposalIds },
-    }).populate("user_id", "username email"); 
+    }).populate("user_id", "username email");
 
     if (!proposals || proposals.length === 0) {
       return res
@@ -214,7 +293,9 @@ exports.acceptProposal = async (req, res) => {
 
     // Cek apakah proposal sudah diterima atau belum
     if (proposal.isAcceptedByDosen) {
-      return res.status(400).json({ message: "Proposal already accepted by dosen" });
+      return res
+        .status(400)
+        .json({ message: "Proposal already accepted by dosen" });
     }
 
     // Update proposal status
@@ -225,7 +306,11 @@ exports.acceptProposal = async (req, res) => {
     // Kirim notifikasi kepada pengguna
     const user = await User.findById(proposal.user_id);
     if (user) {
-      await sendNotificationToOwner(user.email, proposalId, 'Proposal Accepted');
+      await sendNotificationToOwner(
+        user.email,
+        proposalId,
+        "Proposal Accepted"
+      );
     }
 
     res.status(200).json({ message: "Proposal accepted successfully" });
@@ -252,14 +337,10 @@ exports.getProposalStatus = async (req, res) => {
     });
 
     // Tentukan status berdasarkan apakah proposal diterima atau belum
-    const status = proposal.isAcceptedByDosen
-      ? "Accepted"
-      : "Not Accepted";
+    const status = proposal.isAcceptedByDosen ? "Accepted" : "Not Accepted";
 
     res.status(200).json({ status });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
-

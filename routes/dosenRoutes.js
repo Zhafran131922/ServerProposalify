@@ -12,6 +12,7 @@ router.get("/:proposalId", authDosen, reviewController.getProposal);
 router.get("/reviewed-proposal/:dosenId/:proposalId", authDosen, getReviewedProposalByProposalId);
 router.post("/proposal/:proposalId/accept", authDosen, reviewController.acceptProposal);
 router.get('/proposal/:proposalId/status', authDosen, reviewController.getProposalStatus);
-
+router.post('/dosen/request-otp',authDosen,reviewController.requestOtpForPasswordChange);
+router.post('/dosen/update-password', authDosen,reviewController.updateDosenPassword);
 
 module.exports = router;

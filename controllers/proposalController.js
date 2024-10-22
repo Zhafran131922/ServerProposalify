@@ -7,6 +7,24 @@ const sendProposalNotification = require("../services/emailService");
 const proposalService = require("../services/proposalService");
 const transporter = require("../services/emailConfig");
 const moment = require("moment-timezone");
+const sharp = require("sharp");
+
+function getImageSize(base64String) {
+  const stringLength = base64String.length;
+  const sizeInBytes = 4 * Math.ceil(stringLength / 3) * 0.5624896334383812;
+  return sizeInBytes;
+}
+
+// Function to compress image using sharp
+async function compressImage(base64Image) {
+  const buffer = Buffer.from(base64Image, 'base64');
+  const compressedBuffer = await sharp(buffer)
+    .resize({ width: 500 }) // Adjust the width as necessary (optional)
+    .jpeg({ quality: 50 }) // Adjust the quality as necessary (optional)
+    .toBuffer();
+
+  return compressedBuffer.toString('base64');
+}
 
 exports.saveProposal = async (req, res) => {
   try {
@@ -14,67 +32,136 @@ exports.saveProposal = async (req, res) => {
     const user_id = req.user.userId;
 
     if (!user_id) {
-      return res
-        .status(400)
-        .json({ message: "User ID is not found in the token" });
+      return res.status(400).json({ message: 'User ID is not found in the token' });
     }
 
-    console.log("User ID from token:", user_id);
-
-    // Check if formulirs is an array
-    let parsedFormulirs;
-    if (typeof formulirs === "string") {
-      try {
-        parsedFormulirs = JSON.parse(formulirs);
-      } catch (e) {
-        return res.status(400).json({ message: "Invalid formulirs format" });
-      }
-    } else if (Array.isArray(formulirs)) {
-      parsedFormulirs = formulirs;
-    } else {
-      return res
-        .status(400)
-        .json({ message: "Formulirs must be an array and cannot be empty" });
+    // Validate formulirs
+    if (!Array.isArray(formulirs) || formulirs.length === 0) {
+      return res.status(400).json({ message: 'Formulirs must be an array and cannot be empty' });
     }
 
-    // Validate each formulir to check for text and optional base64 images
-    const processedFormulirs = parsedFormulirs.map((formulir) => {
-      if (!formulir.judulFormulir || !formulir.isi) {
-        throw new Error("Each formulir must have a judulFormulir and isi");
-      }
+    // Process formulirs
+    const processedFormulirs = await Promise.all(
+      formulirs.map(async (formulir, index) => {
+        const { judulFormulir, isi } = formulir;
 
-      // Check for text and base64 image in the isi field
-      const base64Regex = /^data:image\/[a-zA-Z]+;base64,/;
+        if (!judulFormulir || !isi) {
+          throw new Error(`Each formulir must have a judulFormulir and isi (at index ${index})`);
+        }
 
-      // You can now handle both text and base64 image formats
-      if (!base64Regex.test(formulir.isi) && typeof formulir.isi !== "string") {
-        throw new Error("isi field must be either text or a base64-encoded image");
-      }
+        // Validate if there are images in isi
+        const imgTagRegex = /<img src="data:image\/[^;]+;base64,([^"]+)"/g;
+        let match;
+        let modifiedIsi = isi; // Variable for modified isi if there are images
 
-      return formulir;
-    });
+        while ((match = imgTagRegex.exec(isi)) !== null) {
+          const base64Image = match[1];
+          const imageSize = getImageSize(base64Image);
+
+          // If the image size is larger than 100 KB, compress the image
+          if (imageSize > 100 * 1024) {
+            const compressedImage = await compressImage(base64Image);
+            // Replace the old image with the compressed one
+            modifiedIsi = modifiedIsi.replace(base64Image, compressedImage);
+          }
+        }
+
+        // Return the modified formulir
+        return {
+          judulFormulir,
+          isi: modifiedIsi,
+        };
+      })
+    );
 
     // Create and save the proposal
     const proposal = new Proposal({
       user_id,
       judul,
       formulirs: processedFormulirs,
+      createdAt: new Date(), // Save timestamp
     });
 
     await proposal.save();
 
-    // Format last saved time (updatedAt) to a readable format (e.g., Asia/Jakarta timezone)
-    const lastSavedAt = moment(proposal.updatedAt)
-      .tz("Asia/Jakarta")
-      .format("YYYY-MM-DD HH:mm:ss");
-
-    res.status(201).json({
-      message: "Proposal berhasil disimpan",
-      lastSavedAt, // Return last saved time
-    });
+    res.status(201).json({ message: 'Proposal saved successfully', createdAt: proposal.createdAt });
   } catch (error) {
-    console.error("Error during proposal save:", error);
-    res.status(500).json({ message: error.message });
+    console.error('Error during proposal save:', error);
+    res.status(500).json({ message: error.message || 'Internal Server Error', error });
+  }
+};
+
+// Controller untuk edit proposal
+exports.editProposalById = async (req, res) => {
+  try {
+    const { judul, formulirs } = req.body;
+    const proposalId = req.params.proposalId;
+    const user_id = req.user.userId;
+
+    console.log('Proposal ID from request:', proposalId);
+    console.log('User ID from token:', user_id);
+
+    // Cari proposal berdasarkan ID dan user ID
+    const proposal = await Proposal.findOne({ _id: proposalId, user_id });
+
+    if (!proposal) {
+      return res.status(404).json({ message: 'Proposal not found or not authorized' });
+    }
+
+    // Validasi formulirs
+    if (!Array.isArray(formulirs) || formulirs.length === 0) {
+      return res.status(400).json({ message: 'Formulirs must be an array and cannot be empty' });
+    }
+
+    // Fungsi untuk menghitung ukuran file base64 dalam bytes
+    const getImageSize = (base64String) => {
+      const stringLength = base64String.length;
+      const sizeInBytes = 4 * Math.ceil(stringLength / 3) * 0.5624896334383812;
+      return sizeInBytes;
+    };
+
+    // Proses formulirs dan validasi gambar
+    const processedFormulirs = formulirs.map((formulir, index) => {
+      const { judulFormulir, isi } = formulir;
+
+      if (!judulFormulir || !isi) {
+        throw new Error(`Each formulir must have a judulFormulir and isi (at index ${index})`);
+      }
+
+      // Validasi jika ada gambar dalam isi
+      const imgTagRegex = /<img src="data:image\/[^;]+;base64,([^"]+)"/g;
+      let match;
+      while ((match = imgTagRegex.exec(isi)) !== null) {
+        const base64Image = match[1];
+        const imageSize = getImageSize(base64Image);
+
+        // Cek apakah ukuran gambar lebih besar dari 100 KB
+        if (imageSize > 100 * 1024) {
+          throw new Error(`Image size exceeds 100 KB at index ${index}. Please upload a smaller image.`);
+        }
+
+        console.log(`Formulir di index ${index} berisi gambar dalam format base64.`);
+      }
+
+      return formulir;
+    });
+
+    // Update judul dan formulirs jika ada perubahan
+    if (judul) {
+      proposal.judul = judul;
+    }
+
+    if (processedFormulirs) {
+      proposal.formulirs = processedFormulirs;
+    }
+
+    // Simpan proposal yang sudah diupdate
+    await proposal.save();
+
+    res.status(200).json({ message: 'Proposal updated successfully', proposal });
+  } catch (error) {
+    console.error('Error during proposal update:', error);
+    res.status(500).json({ message: error.message || 'Internal Server Error' });
   }
 };
 
@@ -156,51 +243,6 @@ exports.getProposalById = async (req, res) => {
   }
 };
 
-exports.editProposalById = async (req, res) => {
-  try {
-    const { judul, formulirs } = req.body;
-    const proposalId = req.params.proposalId;
-    const user_id = req.user.userId;
-
-    console.log("Proposal ID from request:", proposalId);
-    console.log("User ID from token:", user_id);
-
-    const proposal = await Proposal.findOne({ _id: proposalId, user_id });
-
-    if (!proposal) {
-      return res
-        .status(404)
-        .json({ message: "Proposal not found or not authorized" });
-    }
-
-    if (judul) {
-      proposal.judul = judul;
-    }
-
-    if (formulirs) {
-      if (typeof formulirs === "string") {
-        try {
-          proposal.formulirs = JSON.parse(formulirs);
-        } catch (e) {
-          return res.status(400).json({ message: "Invalid formulirs format" });
-        }
-      } else if (Array.isArray(formulirs)) {
-        proposal.formulirs = formulirs;
-      } else {
-        return res.status(400).json({ message: "Invalid formulirs data" });
-      }
-    }
-
-    await proposal.save();
-
-    res
-      .status(200)
-      .json({ message: "Proposal updated successfully", proposal });
-  } catch (error) {
-    console.error("Error during proposal update:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
 
 exports.adminGetSubmittedProposals = async (req, res) => {
   try {
